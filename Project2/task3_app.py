@@ -30,22 +30,22 @@ def load_all_assets():
         cancer_model = MLP(30) # 30 features
         cancer_model.load_state_dict(torch.load('saved_models/cancer_model.pth'))
         cancer_model.eval() 
-        cancer_scaler = joblib.load('saved_models/cancer_scaler.joblib')
+        cancer_scaler = joblib.load('task3_models/cancer_scaler.joblib')
 
         # Symptom Checker Assets (Need to load these even if we don't use them yet)
-        symptom_model = joblib.load('saved_models/disease_classifier.pkl')
-        symptom_encoder = joblib.load('saved_models/symptom_encoder.joblib')
-        symptom_list = pickle.load(open('saved_models/all_symptoms.pkl', 'rb')) 
-        symptom_weights_df = joblib.load('saved_models/symptom_weights.joblib')
-        URGENT_DISEASES = pickle.load(open('saved_models/urgent_diseases.pkl', 'rb')) 
+        symptom_model = joblib.load('task3_models/disease_classifier.pkl')
+        disease_encoder = joblib.load('task3_models/symptom_encoder.joblib')
+        symptom_list = pickle.load(open('task3_models/all_symptoms.pkl', 'rb')) 
+        symptom_weights_df = joblib.load('task3_models/symptom_weights.joblib')
+        URGENT_DISEASES = pickle.load(open('task3_models/urgent_diseases.pkl', 'rb')) 
         
-        return cancer_model, cancer_scaler, symptom_model, symptom_encoder, symptom_list, symptom_weights_df, URGENT_DISEASES
+        return cancer_model, cancer_scaler, symptom_model, disease_encoder, symptom_list, symptom_weights_df, URGENT_DISEASES
     except Exception as e:
         st.error(f"FATAL ERROR: Could not load models or assets. Please check your 'models/' folder. Error: {e}")
         st.stop() 
 
 # Load everything into variables
-cancer_model, cancer_scaler, symptom_model, symptom_encoder, symptom_list, symptom_weights_df, URGENT_DISEASES = load_all_assets()
+cancer_model, cancer_scaler, symptom_model, disease_encoder, symptom_list, symptom_weights_df, URGENT_DISEASES = load_all_assets()
 
 
 def predict_cancer_urgency(input_features, model, scaler):
@@ -257,7 +257,7 @@ elif app_mode == "Symptom-Based Urgency Checker":
         # The variables (S_model, S_encoder, S_list, S_weights_df, URGENT_DISEASES) 
         # were loaded globally at the start of app.py
         urgency, disease, score = classify_symptom_urgency(
-            selected_symptoms, symptom_model, symptom_encoder, symptom_list, symptom_weights_df, URGENT_DISEASES
+            selected_symptoms, symptom_model, disease_encoder, symptom_list, symptom_weights_df, URGENT_DISEASES
         )
         
         # 2. DISPLAY RESULTS
@@ -272,4 +272,5 @@ elif app_mode == "Symptom-Based Urgency Checker":
             st.info("Consult a General Practitioner or Urgent Care facility within 1-2 days.")
         else:
             st.success(f"✅ **LOW URGENCY**: Predicted Disease: **{disease}** (Score: {score:.1f}).")
+
             st.info("Self-care and routine monitoring are recommended. Consult a doctor if symptoms persist.")
