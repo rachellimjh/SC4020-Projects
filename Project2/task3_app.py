@@ -28,13 +28,13 @@ def load_all_assets():
     try:
         # Cancer Prediction Assets
         cancer_model = MLP(30) # 30 features
-        cancer_model.load_state_dict(torch.load('saved_models/cancer_model.pth'))
+        cancer_model.load_state_dict(torch.load('task3_models/cancer_model.pth'))
         cancer_model.eval() 
         cancer_scaler = joblib.load('task3_models/cancer_scaler.joblib')
 
         # Symptom Checker Assets (Need to load these even if we don't use them yet)
         symptom_model = joblib.load('task3_models/disease_classifier.pkl')
-        disease_encoder = joblib.load('task3_models/symptom_encoder.joblib')
+        disease_encoder = joblib.load('task3_models/disease_encoder.joblib')
         symptom_list = pickle.load(open('task3_models/all_symptoms.pkl', 'rb')) 
         symptom_weights_df = joblib.load('task3_models/symptom_weights.joblib')
         URGENT_DISEASES = pickle.load(open('task3_models/urgent_diseases.pkl', 'rb')) 
@@ -51,7 +51,7 @@ cancer_model, cancer_scaler, symptom_model, disease_encoder, symptom_list, sympt
 def predict_cancer_urgency(input_features, model, scaler):
     """Predicts malignancy and classifies urgency using the PyTorch model."""
     
-    # 1. Scaling: Use the loaded Joblib scaler
+    # 1. Scaling: Use the loaded Joblib scaler`
     features_array = np.array(input_features).reshape(1, -1)
     scaled_data = scaler.transform(features_array)
     
@@ -272,5 +272,4 @@ elif app_mode == "Symptom-Based Urgency Checker":
             st.info("Consult a General Practitioner or Urgent Care facility within 1-2 days.")
         else:
             st.success(f"✅ **LOW URGENCY**: Predicted Disease: **{disease}** (Score: {score:.1f}).")
-
             st.info("Self-care and routine monitoring are recommended. Consult a doctor if symptoms persist.")
