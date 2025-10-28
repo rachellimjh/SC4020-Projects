@@ -5,6 +5,7 @@ import pickle
 import torch 
 import torch.nn as nn 
 import joblib
+import math 
 
 class MLP(nn.Module):
     
@@ -26,26 +27,28 @@ class MLP(nn.Module):
 
 def load_all_assets():
     try:
-        # Cancer Prediction Assets
+        # read cancer_data to get bounds of the features later on as well
+        cancer_data = pd.read_csv("datasets/cancer_data.csv")
+        # cancer pred assets
         cancer_model = MLP(30) # 30 features
         cancer_model.load_state_dict(torch.load('task3_models/cancer_model.pth'))
         cancer_model.eval() 
         cancer_scaler = joblib.load('task3_models/cancer_scaler.joblib')
 
-        # Symptom Checker Assets (Need to load these even if we don't use them yet)
+        # symptom checker assets
         symptom_model = joblib.load('task3_models/disease_classifier.pkl')
         disease_encoder = joblib.load('task3_models/disease_encoder.joblib')
         symptom_list = pickle.load(open('task3_models/all_symptoms.pkl', 'rb')) 
         symptom_weights_df = joblib.load('task3_models/symptom_weights.joblib')
         URGENT_DISEASES = pickle.load(open('task3_models/urgent_diseases.pkl', 'rb')) 
         
-        return cancer_model, cancer_scaler, symptom_model, disease_encoder, symptom_list, symptom_weights_df, URGENT_DISEASES
+        return cancer_data, cancer_model, cancer_scaler, symptom_model, disease_encoder, symptom_list, symptom_weights_df, URGENT_DISEASES
     except Exception as e:
         st.error(f"FATAL ERROR: Could not load models or assets. Please check your 'models/' folder. Error: {e}")
         st.stop() 
 
 # Load everything into variables
-cancer_model, cancer_scaler, symptom_model, disease_encoder, symptom_list, symptom_weights_df, URGENT_DISEASES = load_all_assets()
+cancer_data, cancer_model, cancer_scaler, symptom_model, disease_encoder, symptom_list, symptom_weights_df, URGENT_DISEASES = load_all_assets()
 
 
 def predict_cancer_urgency(input_features, model, scaler):
@@ -136,9 +139,8 @@ app_mode = st.sidebar.selectbox(
     ("Select Module...", "Symptom-Based Urgency Checker", "Breast Cancer Urgency Prediction")
 )
 
-# -----------------------------------------------------------------
 # 3. CONTENT DISPLAY LOGIC (The "Pages")
-# -----------------------------------------------------------------
+
 FEATURE_GROUPS = {
     "Mean Features (Clinical Measurement)": [
         "radius_mean", "texture_mean", "perimeter_mean", "area_mean", 
@@ -172,26 +174,35 @@ elif app_mode == "Breast Cancer Urgency Prediction":
     # --- 1. Define Tabs ---
     tab_mean, tab_se, tab_worst = st.tabs(list(FEATURE_GROUPS.keys()))
     
-    # 30-feature list, ordered correctly for the prediction function
+
     ordered_feature_names = sum(FEATURE_GROUPS.values(), [])
     
     # --- 2. Create Sliders within Tabs ---
+    feature_bounds = {}
+    for col in cancer_data.columns:
+        if col != 'diagnosis':
+            col_min = cancer_data[col].min()
+            col_max = cancer_data[col].max()
+            feature_bounds[col] = (col_min, col_max)
     
-    # Simple function to set default slider bounds (you should refine these)
     def get_bounds(feature_name):
-        # Placeholder logic based on general magnitude. Adjust with real min/max from your training data!
-        if 'radius' in feature_name or 'perimeter' in feature_name:
-             return 5.0, 30.0, 15.0, 0.1
-        elif 'area' in feature_name:
-             return 100.0, 2500.0, 700.0, 5.0
+        # default values incase
+        default_min, default_max, default_value, step = 0.0, 1.0, 0.5, 0.01
+    
+        if feature_name in feature_bounds:
+            f_min, f_max = feature_bounds[feature_name]
+            f_min = float(math.floor(f_min.min()))
+            f_max = float(math.ceil(f_max.max()))
+            step = (f_max - f_min) / 100.0 
+            default_value = (f_min + f_max) / 2.0
+            return f_min, f_max, default_value, step
         else:
-             return 0.0, 0.3, 0.1, 0.01
+            return default_min, default_max, default_value, step
 
     for tab, (group_name, features) in zip([tab_mean, tab_se, tab_worst], FEATURE_GROUPS.items()):
         with tab:
             st.subheader(group_name)
             
-            # Use columns inside the tab for better layout
             cols = st.columns(2)
             
             for i, feature in enumerate(features):
@@ -207,7 +218,7 @@ elif app_mode == "Breast Cancer Urgency Prediction":
                     max_value=max_v, 
                     value=default_v, 
                     step=step_v,
-                    key=f"slider_{feature}" # Unique key is important!
+                    key=f"slider_{feature}"
                 )
 
     # --- 3. Prepare Ordered Input Array ---
@@ -218,12 +229,12 @@ elif app_mode == "Breast Cancer Urgency Prediction":
     # --- 4. Prediction Button and Logic ---
 
     if st.button("Analyze and Predict Urgency"):
-        # Check if all 30 features were collected (should always be true if the loops ran)
+   
         if len(input_features) != 30:
              st.error("Internal Error: Could not collect all 30 features.")
              st.stop()
         
-        # NOTE: Using C_model and C_scaler as defined in your global load function
+ 
         urgency, probability_malignant = predict_cancer_urgency(input_features, cancer_model, cancer_scaler)
         
         st.subheader("✅ Prediction Results")
